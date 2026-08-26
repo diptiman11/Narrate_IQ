@@ -52,3 +52,10 @@ htmlcov/
 # Temporary
 tmp/
 temp/
+
+# Keep data directories in Git, but ignore their contents
+data/raw/*
+data/processed/*
+
+!data/raw/.gitkeep
+!data/processed/.gitkeep
