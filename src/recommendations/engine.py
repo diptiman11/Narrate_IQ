@@ -3,94 +3,49 @@ from pathlib import Path
 import pandas as pd
 
 
-CONFIDENCE_PATH = "data/processed/confidence_scores.csv"
-KPI_PATH = "data/processed/daily_kpis.csv"
+HYPOTHESIS_PATH = "data/processed/hypotheses.csv"
 
 OUTPUT_PATH = "data/processed/recommendations.csv"
 
 
 def generate_recommendations() -> pd.DataFrame:
-
-    confidence = pd.read_csv(CONFIDENCE_PATH)
-    kpis = pd.read_csv(KPI_PATH)
-
-    latest_date = kpis["date"].max()
-
-    latest_kpi = kpis[
-        kpis["date"] == latest_date
-    ].iloc[0]
+    hypotheses = pd.read_csv(HYPOTHESIS_PATH)
 
     recommendations = []
 
-    for _, row in confidence.iterrows():
+    for _, row in hypotheses.iterrows():
 
-        driver = row["driver"]
-        change = float(row["driver_change_pct"])
-        confidence_level = row["confidence"]
+        hypothesis = row["hypothesis"]
+        confidence = row["confidence"]
+        confidence_score = float(row["confidence_score"])
 
         recommendation = None
         priority = "low"
 
-        if driver == "sales_units" and change < -5:
+        if hypothesis == "Sales volume deterioration":
 
             recommendation = (
-                "Investigate the sales-volume decline by "
-                "region, product and channel. Prioritize "
-                "high-volume products and regions with the "
-                "largest unit losses."
+                "Investigate the sales-volume decline by region, "
+                "product and channel. Prioritize high-volume products "
+                "and regions with the largest unit losses."
             )
             priority = "high"
 
-        elif driver == "stockout_hours" and change > 10:
+        elif hypothesis == "Inventory constraint":
 
             recommendation = (
-                "Investigate inventory availability and "
-                "replenishment. Prioritize products and "
-                "warehouses with elevated stockout hours."
+                "Investigate inventory availability and replenishment. "
+                "Prioritize products and warehouses with elevated "
+                "stockout hours and declining stock."
             )
             priority = "high"
 
-        elif driver == "closing_stock" and change < -5:
+        elif hypothesis == "Marketing efficiency deterioration":
 
             recommendation = (
-                "Review inventory levels and replenishment "
-                "planning to determine whether declining "
-                "stock is constraining sales."
-            )
-            priority = "medium"
-
-        elif driver == "marketing_spend" and change > 10:
-
-            recommendation = (
-                "Review marketing spend efficiency and "
-                "compare campaign-level conversion performance "
-                "before increasing spend further."
-            )
-            priority = "medium"
-
-        elif driver == "marketing_conversion_rate" and change < -5:
-
-            recommendation = (
-                "Review campaign and channel performance "
-                "to identify the source of declining "
-                "marketing conversion efficiency."
-            )
-            priority = "medium"
-
-        elif driver == "marketing_clicks" and change < -10:
-
-            recommendation = (
-                "Review campaign reach and channel traffic "
-                "to identify the cause of declining clicks."
-            )
-            priority = "medium"
-
-        elif driver == "marketing_conversions" and change < -10:
-
-            recommendation = (
-                "Review campaign targeting and landing-page "
-                "performance because marketing conversions "
-                "are declining."
+                "Review campaign and channel performance to identify "
+                "the source of declining marketing conversion efficiency "
+                "before increasing marketing spend."
             )
             priority = "medium"
 
@@ -98,13 +53,13 @@ def generate_recommendations() -> pd.DataFrame:
 
             recommendations.append(
                 {
-                    "date": latest_date,
-                    "driver": driver,
-                    "driver_change_pct": change,
-                    "confidence": confidence_level,
-                    "confidence_score": row[
-                        "confidence_score"
-                    ],
+                    "date": row["date"],
+                    "hypothesis": hypothesis,
+                    "status": row["status"],
+                    "confidence": confidence,
+                    "confidence_score": confidence_score,
+                    "revenue_change_pct": row["revenue_change_pct"],
+                    "evidence": row["evidence"],
                     "priority": priority,
                     "recommendation": recommendation,
                 }
@@ -121,8 +76,7 @@ def generate_recommendations() -> pd.DataFrame:
         }
 
         result["priority_rank"] = (
-            result["priority"]
-            .map(priority_order)
+            result["priority"].map(priority_order)
         )
 
         result = result.sort_values(
@@ -148,12 +102,12 @@ def generate_recommendations() -> pd.DataFrame:
     return result
 
 
-def main():
+def main() -> None:
 
     result = generate_recommendations()
 
     print(
-        "\n=== Narrate IQ Recommendation Engine ===\n"
+        "\n=== Narrate IQ Hypothesis-Based Recommendation Engine ===\n"
     )
 
     if result.empty:
