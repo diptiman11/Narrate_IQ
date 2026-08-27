@@ -2,13 +2,23 @@ from pathlib import Path
 import subprocess
 import sys
 
-
-PROJECT_ROOT = (
-    Path(__file__).resolve().parent.parent
+from src.pipeline import (
+    reset_processed_outputs,
+    validate_core_dataset,
 )
 
 
+PROJECT_ROOT = Path(
+    __file__
+).resolve().parent.parent
+
+
 PIPELINE_MODULES = [
+    "src.kpi.engine",
+    "src.anomaly.engine",
+    "src.drivers.engine",
+    "src.attribution.engine",
+    "src.confidence.engine",
     "src.drilldown.sales",
     "src.context.events",
     "src.evidence.validator",
@@ -26,6 +36,16 @@ PIPELINE_MODULES = [
 def run_pipeline() -> tuple[bool, list[str]]:
 
     logs = []
+
+    try:
+        validate_core_dataset()
+    except FileNotFoundError as exc:
+        return False, [str(exc)]
+
+    # IMPORTANT:
+    # Remove stale results before processing the
+    # newly uploaded dataset.
+    reset_processed_outputs()
 
     for module in PIPELINE_MODULES:
 
@@ -55,8 +75,7 @@ def run_pipeline() -> tuple[bool, list[str]]:
             logs.append(
                 f"\nPipeline stopped at "
                 f"{module} "
-                f"(exit code "
-                f"{process.returncode})."
+                f"(exit code {process.returncode})."
             )
 
             return False, logs
