@@ -34,7 +34,7 @@ SALES_SOURCE = DataSource(
         "gross_margin",
     ),
     date_column="date",
-    date_format="%d-%m-%Y",
+    date_format="%Y-%m-%d",
 )
 
 
