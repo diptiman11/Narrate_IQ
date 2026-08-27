@@ -54,6 +54,7 @@ class InsightResponse(BaseModel):
 
     hypotheses: list[dict[str, Any]]
     evidence_validation: list[dict[str, Any]]
-    recommendations: list[dict[str, Any]]
+    drilldown: list[dict[str, Any]]
 
+    recommendations: list[dict[str, Any]]
     narrative: str | None

@@ -6,6 +6,7 @@ from api.experiment_schemas import (
     ExperimentResponse,
     ExperimentStartRequest,
 )
+from api.serializers import clean_record, clean_records
 from src.experiments.service import (
     complete_experiment,
     start_experiment,
@@ -18,22 +19,6 @@ router = APIRouter(
 )
 
 
-def _clean_record(record: dict) -> dict:
-    """
-    Convert pandas NaN values into Python None so that
-    Pydantic can correctly validate optional fields.
-    """
-    cleaned = {}
-
-    for key, value in record.items():
-        if value != value:
-            cleaned[key] = None
-        else:
-            cleaned[key] = value
-
-    return cleaned
-
-
 @router.get(
     "",
     response_model=list[ExperimentResponse],
@@ -41,12 +26,9 @@ def _clean_record(record: dict) -> dict:
 def get_experiments():
     df = read_csv("experiments.csv")
 
-    records = df.to_dict(orient="records")
-
-    return [
-        _clean_record(record)
-        for record in records
-    ]
+    return clean_records(
+        df.to_dict(orient="records")
+    )
 
 
 @router.post(
@@ -63,7 +45,7 @@ def start_experiment_endpoint(
             baseline_value=request.baseline_value,
         )
 
-        return _clean_record(result)
+        return clean_record(result)
 
     except ValueError as exc:
         raise HTTPException(
@@ -86,7 +68,7 @@ def complete_experiment_endpoint(
             observed_value=request.observed_value,
         )
 
-        return _clean_record(result)
+        return clean_record(result)
 
     except ValueError as exc:
         raise HTTPException(

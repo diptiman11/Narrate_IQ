@@ -1,9 +1,12 @@
 from fastapi import FastAPI
 
 from api.routes.analysis import router as analysis_router
+from api.routes.decision import router as decision_router
+from api.routes.drilldown import router as drilldown_router
 from api.routes.experiments import router as experiments_router
 from api.routes.health import router as health_router
 from api.routes.learning import router as learning_router
+from api.routes.rootcause import router as rootcause_router
 
 
 app = FastAPI(
@@ -17,3 +20,6 @@ app.include_router(health_router)
 app.include_router(analysis_router)
 app.include_router(experiments_router)
 app.include_router(learning_router)
+app.include_router(drilldown_router)
+app.include_router(rootcause_router)
+app.include_router(decision_router)

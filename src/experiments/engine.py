@@ -3,46 +3,56 @@ from pathlib import Path
 import pandas as pd
 
 
-HYPOTHESIS_PATH = "data/processed/hypotheses.csv"
-RECOMMENDATION_PATH = "data/processed/recommendations.csv"
+HYPOTHESIS_PATH = Path(
+    "data/processed/hypotheses.csv"
+)
 
-OUTPUT_PATH = "data/processed/experiments.csv"
+EXPERIMENTS_PATH = Path(
+    "data/processed/experiments.csv"
+)
 
 
 EXPERIMENT_DEFINITIONS = {
     "Sales volume deterioration": {
-        "action": (
-            "Investigate the largest sales-unit losses by "
-            "region, product and channel."
-        ),
         "target_metric": "sales_units",
         "expected_direction": "increase",
         "success_threshold_pct": 5.0,
+        "action": (
+            "Investigate the sales-volume decline by region, "
+            "product and channel. Prioritize high-volume "
+            "products and regions with the largest unit losses."
+        ),
     },
     "Inventory constraint": {
-        "action": (
-            "Improve availability and replenishment for "
-            "products and warehouses with elevated stockouts."
-        ),
         "target_metric": "stockout_hours",
         "expected_direction": "decrease",
         "success_threshold_pct": 10.0,
+        "action": (
+            "Investigate inventory availability and "
+            "replenishment. Prioritize products and "
+            "warehouses with elevated stockout hours "
+            "and declining stock."
+        ),
     },
     "Marketing efficiency deterioration": {
-        "action": (
-            "Review underperforming campaigns and channels "
-            "before increasing marketing spend."
-        ),
         "target_metric": "marketing_conversion_rate",
         "expected_direction": "increase",
         "success_threshold_pct": 5.0,
+        "action": (
+            "Review campaign and channel performance "
+            "to identify the source of declining marketing "
+            "conversion efficiency before increasing "
+            "marketing spend."
+        ),
     },
 }
 
 
 def generate_experiments() -> pd.DataFrame:
-    hypotheses = pd.read_csv(HYPOTHESIS_PATH)
-    recommendations = pd.read_csv(RECOMMENDATION_PATH)
+
+    hypotheses = pd.read_csv(
+        HYPOTHESIS_PATH
+    )
 
     if hypotheses.empty:
         return pd.DataFrame()
@@ -53,9 +63,45 @@ def generate_experiments() -> pd.DataFrame:
         hypotheses["date"] == latest_date
     ].copy()
 
-    latest_recommendations = recommendations[
-        recommendations["date"] == latest_date
-    ].copy()
+    # -------------------------------------------------
+    # Load existing experiment state if it exists.
+    # -------------------------------------------------
+
+    if EXPERIMENTS_PATH.exists():
+
+        try:
+            existing = pd.read_csv(
+                EXPERIMENTS_PATH
+            )
+        except pd.errors.EmptyDataError:
+            existing = pd.DataFrame()
+
+    else:
+        existing = pd.DataFrame()
+
+    # -------------------------------------------------
+    # Normalize existing columns.
+    # -------------------------------------------------
+
+    if not existing.empty:
+
+        text_columns = [
+            "experiment_id",
+            "date",
+            "hypothesis",
+            "confidence",
+            "status",
+            "action",
+            "target_metric",
+            "expected_direction",
+            "outcome",
+        ]
+
+        for column in text_columns:
+            if column in existing.columns:
+                existing[column] = existing[column].astype(
+                    "string"
+                )
 
     experiments = []
 
@@ -70,35 +116,61 @@ def generate_experiments() -> pd.DataFrame:
         if definition is None:
             continue
 
-        recommendation_match = latest_recommendations[
-            latest_recommendations["hypothesis"]
-            == hypothesis_name
-        ]
-
-        recommendation = (
-            recommendation_match.iloc[0]["recommendation"]
-            if not recommendation_match.empty
-            else definition["action"]
+        experiment_id = (
+            f"{latest_date}-"
+            f"{hypothesis_name.lower().replace(' ', '-')}"
         )
+
+        # -------------------------------------------------
+        # Preserve existing experiment state.
+        # -------------------------------------------------
+
+        if not existing.empty:
+
+            matches = existing[
+                existing["experiment_id"]
+                == experiment_id
+            ]
+
+        else:
+
+            matches = pd.DataFrame()
+
+        if not matches.empty:
+
+            previous = matches.iloc[-1].to_dict()
+
+            # Completed/running experiments are preserved
+            # exactly as they are.
+            if previous.get("status") in {
+                "running",
+                "completed",
+            }:
+
+                experiments.append(
+                    previous
+                )
+
+                continue
+
+        # -------------------------------------------------
+        # Create a new proposed experiment.
+        # -------------------------------------------------
 
         experiments.append(
             {
-                "experiment_id": (
-                    f"{latest_date}-"
-                    f"{hypothesis_name.lower().replace(' ', '-')}"
-                ),
+                "experiment_id": experiment_id,
                 "date": latest_date,
                 "hypothesis": hypothesis_name,
-                "hypothesis_rank": hypothesis.get(
-                    "hypothesis_rank",
-                    None,
+                "hypothesis_rank": int(
+                    hypothesis["hypothesis_rank"]
                 ),
                 "confidence_score": float(
                     hypothesis["confidence_score"]
                 ),
                 "confidence": hypothesis["confidence"],
                 "status": "proposed",
-                "action": recommendation,
+                "action": definition["action"],
                 "target_metric": definition[
                     "target_metric"
                 ],
@@ -115,37 +187,61 @@ def generate_experiments() -> pd.DataFrame:
             }
         )
 
-    return pd.DataFrame(experiments)
+    result = pd.DataFrame(
+        experiments
+    )
 
+    if not result.empty:
 
-def main() -> None:
-    result = generate_experiments()
+        result = result.sort_values(
+            [
+                "status",
+                "hypothesis_rank",
+            ],
+            ascending=[
+                True,
+                True,
+            ],
+        ).reset_index(
+            drop=True
+        )
 
-    output = Path(OUTPUT_PATH)
-
-    output.parent.mkdir(
+    EXPERIMENTS_PATH.parent.mkdir(
         parents=True,
         exist_ok=True,
     )
 
     result.to_csv(
-        output,
+        EXPERIMENTS_PATH,
         index=False,
     )
 
+    return result
+
+
+def main() -> None:
+
+    result = generate_experiments()
+
     print(
-        "\n=== Narrate IQ Experiment Engine ===\n"
+        "\n=== Narrate IQ State-Preserving "
+        "Experiment Engine ===\n"
     )
 
     if result.empty:
-        print("No experiments generated.")
+        print(
+            "No experiments generated."
+        )
     else:
         print(
-            result.to_string(index=False)
+            result.to_string(
+                index=False
+            )
         )
 
     print(
-        f"\nSaved to: {OUTPUT_PATH}"
+        "\nSaved to: "
+        "data/processed/experiments.csv"
     )
 
 

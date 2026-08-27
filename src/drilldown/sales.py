@@ -4,7 +4,9 @@ import pandas as pd
 
 
 SALES_PATH = Path("data/raw/sales.csv")
-OUTPUT_DIR = Path("data/processed")
+OUTPUT_PATH = Path(
+    "data/processed/sales_dimension_drilldown.csv"
+)
 
 
 def _aggregate_dimension(
@@ -59,13 +61,17 @@ def _aggregate_dimension(
 
     result["unit_change_pct"] = (
         result["unit_change"]
-        / result["previous_units"].abs().replace(0, pd.NA)
+        / result["previous_units"]
+        .abs()
+        .replace(0, pd.NA)
         * 100
     )
 
     result["revenue_change_pct"] = (
         result["revenue_change"]
-        / result["previous_revenue"].abs().replace(0, pd.NA)
+        / result["previous_revenue"]
+        .abs()
+        .replace(0, pd.NA)
         * 100
     )
 
@@ -91,20 +97,35 @@ def generate_sales_drilldown() -> pd.DataFrame:
 
     sales = pd.read_csv(SALES_PATH)
 
+    if sales.empty:
+        return pd.DataFrame()
+
     sales["date"] = pd.to_datetime(
         sales["date"]
     )
 
     latest_date = sales["date"].max()
 
-    current_start = latest_date
+    # ---------------------------------------------
+    # Current 7-day period
+    # ---------------------------------------------
+
+    current_start = (
+        latest_date - pd.Timedelta(days=6)
+    )
+
     current_end = latest_date
 
-    previous_start = (
+    # ---------------------------------------------
+    # Previous 7-day period
+    # ---------------------------------------------
+
+    previous_end = (
         latest_date - pd.Timedelta(days=7)
     )
-    previous_end = (
-        latest_date - pd.Timedelta(days=1)
+
+    previous_start = (
+        latest_date - pd.Timedelta(days=13)
     )
 
     current = sales[
@@ -117,7 +138,6 @@ def generate_sales_drilldown() -> pd.DataFrame:
         & (sales["date"] <= previous_end)
     ].copy()
 
-    # Compare latest day with the previous 7-day period
     dimensions = [
         "region",
         "product_id",
@@ -138,16 +158,23 @@ def generate_sales_drilldown() -> pd.DataFrame:
 
         results.append(result)
 
+    if not results:
+        return pd.DataFrame()
+
     final = pd.concat(
         results,
         ignore_index=True,
     )
 
-    final["date"] = latest_date
-
-    final = final.sort_values(
-        "unit_change"
+    final["date"] = latest_date.strftime(
+        "%Y-%m-%d"
     )
+
+    # Largest unit losses first
+    final = final.sort_values(
+        "unit_change",
+        ascending=True,
+    ).reset_index(drop=True)
 
     return final
 
@@ -156,18 +183,13 @@ def main() -> None:
 
     result = generate_sales_drilldown()
 
-    OUTPUT_DIR.mkdir(
+    OUTPUT_PATH.parent.mkdir(
         parents=True,
         exist_ok=True,
     )
 
-    output_path = (
-        OUTPUT_DIR
-        / "sales_dimension_drilldown.csv"
-    )
-
     result.to_csv(
-        output_path,
+        OUTPUT_PATH,
         index=False,
     )
 
@@ -175,14 +197,17 @@ def main() -> None:
         "\n=== Narrate IQ Sales Drilldown ===\n"
     )
 
-    print(
-        result.head(20).to_string(
-            index=False
+    if result.empty:
+        print("No drill-down data generated.")
+    else:
+        print(
+            result.head(30).to_string(
+                index=False
+            )
         )
-    )
 
     print(
-        f"\nSaved to: {output_path}"
+        f"\nSaved to: {OUTPUT_PATH}"
     )
 
 

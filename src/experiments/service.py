@@ -2,27 +2,26 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.repositories.csv_repository import CSVRepository
 
-EXPERIMENTS_PATH = Path(
-    "data/processed/experiments.csv"
-)
+
+EXPERIMENTS_FILENAME = "experiments.csv"
+
+
+repository = CSVRepository()
 
 
 def load_experiments() -> pd.DataFrame:
-    if not EXPERIMENTS_PATH.exists():
+    if not repository.exists(EXPERIMENTS_FILENAME):
         raise FileNotFoundError(
             "experiments.csv not found. "
             "Run the experiment engine first."
         )
 
-    experiments = pd.read_csv(
-        EXPERIMENTS_PATH,
-        keep_default_na=True,
+    experiments = repository.read(
+        EXPERIMENTS_FILENAME
     )
 
-    # Keep text columns as nullable strings so empty CSV
-    # cells are treated as None/NA instead of forcing
-    # the column to float dtype.
     text_columns = [
         "experiment_id",
         "date",
@@ -47,14 +46,9 @@ def load_experiments() -> pd.DataFrame:
 def save_experiments(
     experiments: pd.DataFrame,
 ) -> None:
-    EXPERIMENTS_PATH.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    experiments.to_csv(
-        EXPERIMENTS_PATH,
-        index=False,
+    repository.write(
+        EXPERIMENTS_FILENAME,
+        experiments,
     )
 
 
@@ -62,6 +56,7 @@ def start_experiment(
     experiment_id: str,
     baseline_value: float,
 ) -> dict:
+
     experiments = load_experiments()
 
     matches = experiments[
@@ -87,8 +82,8 @@ def start_experiment(
             "Experiment is already running."
         )
 
-    experiments.at[index, "baseline_value"] = (
-        float(baseline_value)
+    experiments.at[index, "baseline_value"] = float(
+        baseline_value
     )
 
     experiments.at[index, "status"] = "running"
@@ -102,6 +97,7 @@ def complete_experiment(
     experiment_id: str,
     observed_value: float,
 ) -> dict:
+
     experiments = load_experiments()
 
     matches = experiments[
@@ -159,10 +155,8 @@ def complete_experiment(
 
         if measured_change >= threshold:
             outcome = "success"
-
         elif measured_change > 0:
             outcome = "partial"
-
         else:
             outcome = "failed"
 
@@ -170,10 +164,8 @@ def complete_experiment(
 
         if measured_change <= -threshold:
             outcome = "success"
-
         elif measured_change < 0:
             outcome = "partial"
-
         else:
             outcome = "failed"
 
@@ -188,10 +180,7 @@ def complete_experiment(
         measured_change
     )
 
-    # outcome is now a nullable string column,
-    # so assigning "success"/"partial"/"failed" is safe.
     experiments.at[index, "outcome"] = outcome
-
     experiments.at[index, "status"] = "completed"
 
     save_experiments(experiments)

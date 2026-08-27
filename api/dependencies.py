@@ -3,21 +3,32 @@ from pathlib import Path
 import pandas as pd
 from fastapi import HTTPException
 
+from src.repositories.csv_repository import CSVRepository
 
-BASE_DIR = Path(__file__).resolve().parent.parent / "data" / "processed"
+
+BASE_DIR = (
+    Path(__file__).resolve().parent.parent
+    / "data"
+    / "processed"
+)
+
+
+repository = CSVRepository(BASE_DIR)
 
 
 def read_csv(filename: str) -> pd.DataFrame:
-    path = BASE_DIR / filename
+    try:
+        return repository.read(filename)
 
-    if not path.exists():
+    except FileNotFoundError as exc:
         raise HTTPException(
             status_code=404,
-            detail=f"{filename} not found. Run the pipeline first.",
-        )
+            detail=(
+                f"{filename} not found. "
+                "Run the pipeline first."
+            ),
+        ) from exc
 
-    try:
-        return pd.read_csv(path)
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -32,9 +43,15 @@ def read_narrative() -> str | None:
         return None
 
     try:
-        return path.read_text(encoding="utf-8")
+        return path.read_text(
+            encoding="utf-8"
+        )
+
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to read business narrative: {exc}",
+            detail=(
+                "Failed to read business narrative: "
+                f"{exc}"
+            ),
         ) from exc

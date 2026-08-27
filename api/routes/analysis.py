@@ -38,7 +38,9 @@ def get_anomalies():
 
     return {
         "count": len(df),
-        "latest": df.tail(20).to_dict(orient="records"),
+        "latest": df.tail(20).to_dict(
+            orient="records"
+        ),
     }
 
 
@@ -48,7 +50,9 @@ def get_drivers():
 
     return {
         "rows": len(df),
-        "latest": df.tail(10).to_dict(orient="records"),
+        "latest": df.tail(10).to_dict(
+            orient="records"
+        ),
     }
 
 
@@ -146,12 +150,24 @@ def get_analysis():
     evidence_validation = read_csv(
         "evidence_validation.csv"
     )
+    drilldown = read_csv(
+        "sales_dimension_drilldown.csv"
+    )
     recommendations = read_csv("recommendations.csv")
 
     if kpis.empty:
         raise HTTPException(
             status_code=404,
             detail="daily_kpis.csv contains no data.",
+        )
+
+    if drilldown.empty:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "sales_dimension_drilldown.csv "
+                "contains no data."
+            ),
         )
 
     latest_date = kpis["date"].max()
@@ -183,6 +199,10 @@ def get_analysis():
 
         "evidence_validation": evidence_validation[
             evidence_validation["date"] == latest_date
+        ].to_dict(orient="records"),
+
+        "drilldown": drilldown[
+            drilldown["date"] == latest_date
         ].to_dict(orient="records"),
 
         "recommendations": recommendations[
