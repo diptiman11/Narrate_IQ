@@ -3,14 +3,13 @@ from pathlib import Path
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, r2_score
-from sklearn.model_selection import train_test_split
 
 
 INPUT_PATH = "data/processed/driver_evidence.csv"
 OUTPUT_PATH = "data/processed/ml_driver_importance.csv"
 
 
-FEATURES = [
+BASE_FEATURES = [
     "sales_units",
     "marketing_spend",
     "marketing_clicks",
@@ -20,33 +19,67 @@ FEATURES = [
     "closing_stock",
 ]
 
-TARGET = "sales_revenue"
+
+def build_features(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.sort_values("date").copy()
+
+    # Previous-day information
+    for feature in BASE_FEATURES:
+        df[f"{feature}_lag1"] = df[feature].shift(1)
+
+    # Seven-day historical information
+    for feature in BASE_FEATURES:
+        df[f"{feature}_lag7"] = df[feature].shift(7)
+
+    # Recent trends
+    df["revenue_lag1"] = df["sales_revenue"].shift(1)
+    df["revenue_lag7"] = df["sales_revenue"].shift(7)
+
+    df["revenue_rolling7"] = (
+        df["sales_revenue"]
+        .shift(1)
+        .rolling(7)
+        .mean()
+    )
+
+    return df
 
 
 def train_model():
 
     df = pd.read_csv(INPUT_PATH)
-
     df["date"] = pd.to_datetime(df["date"])
 
-    # Keep only columns required by the model.
-    model_df = df[["date", *FEATURES, TARGET]].copy()
+    df = build_features(df)
 
-    # Replace infinite values with missing values.
-    model_df = model_df.replace([float("inf"), float("-inf")], pd.NA)
+    feature_columns = [
+        column
+        for column in df.columns
+        if column.endswith("_lag1")
+        or column.endswith("_lag7")
+        or column == "revenue_rolling7"
+    ]
 
-    # Remove rows where required model data is unavailable.
+    model_df = df[
+        ["date", "sales_revenue", *feature_columns]
+    ].copy()
+
+    model_df = model_df.replace(
+        [float("inf"), float("-inf")],
+        pd.NA,
+    )
+
     model_df = model_df.dropna()
 
-    if len(model_df) < 30:
+    if len(model_df) < 50:
         raise ValueError(
-            f"Not enough usable rows for ML training: {len(model_df)}"
+            f"Not enough usable rows for ML: {len(model_df)}"
         )
 
-    X = model_df[FEATURES]
-    y = model_df[TARGET]
+    X = model_df[feature_columns]
+    y = model_df["sales_revenue"]
 
-    # Time-aware split: don't randomly mix future and past.
+    # Time-based split.
     split_index = int(len(model_df) * 0.8)
 
     X_train = X.iloc[:split_index]
@@ -56,9 +89,9 @@ def train_model():
     y_test = y.iloc[split_index:]
 
     model = RandomForestRegressor(
-        n_estimators=300,
-        max_depth=8,
-        min_samples_leaf=3,
+        n_estimators=400,
+        max_depth=6,
+        min_samples_leaf=4,
         random_state=42,
         n_jobs=-1,
     )
@@ -72,10 +105,12 @@ def train_model():
 
     importance = pd.DataFrame(
         {
-            "feature": FEATURES,
+            "feature": feature_columns,
             "importance": model.feature_importances_,
         }
-    ).sort_values(
+    )
+
+    importance = importance.sort_values(
         "importance",
         ascending=False,
     )
@@ -92,6 +127,7 @@ def train_model():
 
     print("\n=== Narrate IQ ML Driver Model ===\n")
 
+    print(f"Usable rows:  {len(model_df)}")
     print(f"Training rows: {len(X_train)}")
     print(f"Testing rows:  {len(X_test)}")
 
@@ -99,11 +135,14 @@ def train_model():
     print(f"MAE: ${mae:,.2f}")
     print(f"R²:  {r2:.4f}")
 
-    print("\nFeature importance:")
+    print("\nTop ML drivers:")
+
     print(
         importance[
             ["feature", "importance_pct"]
-        ].to_string(index=False)
+        ]
+        .head(15)
+        .to_string(index=False)
     )
 
     print(f"\nSaved to: {output}")
