@@ -1,0 +1,8 @@
+# Unchanged from your current app
+streamlit>=1.32
+requests
+pandas
+plotly
+
+# New dependency (see README.md "New dependency" section for why)
+streamlit-option-menu>=0.3.12
