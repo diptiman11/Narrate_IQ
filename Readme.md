@@ -2,157 +2,215 @@
 
 ### KPI Intelligence → Evidence → Decision → Action → Experiment → Learning
 
-**Narrate IQ** is an evidence-grounded business intelligence and decision-support system designed to move beyond static dashboards. It turns multi-source business data into a structured decision flow: compute trusted KPIs, detect material movement, identify and rank plausible drivers, validate those hypotheses against multiple evidence sources, recommend an action, define an experiment, learn from outcomes, and expose the complete decision context through an executive interface and a grounded AI Copilot.
+Narrate IQ is an evidence-grounded business intelligence and decision-support prototype that goes beyond showing KPI movement. It combines deterministic KPI computation, anomaly detection, driver analysis, ML-based attribution, business-event context, evidence validation, hypothesis ranking, recommendations, experiment tracking, historical learning, and a grounded AI Copilot.
 
-> **Core design principle:** quantitative truth is established by deterministic analytics and validated data pipelines. The LLM is used as a natural-language interface over the resulting decision context—not as the source of KPI calculations, statistical values, or business facts.
+> **Core principle:** compute and validate quantitative business truth first. Use the LLM to communicate that verified decision context—not to invent KPI values, causes, recommendations, or experiment outcomes.
 
 ---
 
 ## Table of Contents
 
-- [Problem](#1-problem)
-- [Solution](#2-solution)
-- [Architecture](#3-architecture)
-- [Intelligence Pipeline](#4-intelligence-pipeline)
-- [Analytics and Decisioning](#5-analytics-and-decisioning)
-- [Evidence and Uncertainty](#6-evidence-and-uncertainty)
-- [Experiment and Learning Loop](#7-experiment-and-learning-loop)
-- [AI Copilot](#8-ai-copilot)
-- [Frontend](#9-frontend)
-- [Backend API](#10-backend-api)
-- [Data Model and Outputs](#11-data-model-and-outputs)
-- [Repository Structure](#12-repository-structure)
-- [Data Ingestion and Validation](#13-data-ingestion-and-validation)
-- [Setup](#14-setup)
-- [Running the System](#15-running-the-system)
-- [API Reference](#16-api-reference)
-- [Testing](#17-testing)
-- [Design Decisions](#18-design-decisions)
-- [Scope and Limitations](#19-scope-and-limitations)
-- [Submission / Evaluation Guide](#20-submission--evaluation-guide)
+- [Overview](#overview)
+- [Why Narrate IQ](#why-narrate-iq)
+- [End-to-End Architecture](#end-to-end-architecture)
+- [Core Intelligence Pipeline](#core-intelligence-pipeline)
+- [Analytics](#analytics)
+- [Evidence and Confidence](#evidence-and-confidence)
+- [Hypothesis and Decision Layer](#hypothesis-and-decision-layer)
+- [Experiment and Learning Loop](#experiment-and-learning-loop)
+- [AI Copilot](#ai-copilot)
+- [Frontend](#frontend)
+- [Backend](#backend)
+- [Data](#data)
+- [Repository Structure](#repository-structure)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Running Locally](#running-locally)
+- [API](#api)
+- [Testing](#testing)
+- [Technical Design Rationale](#technical-design-rationale)
+- [Limitations](#limitations)
+- [Evaluation / Demo Flow](#evaluation--demo-flow)
 
 ---
 
-# 1. Problem
+## Overview
 
-Traditional BI systems are good at answering what happened, how much a metric moved, and which dashboard or segment changed. They are less effective at taking a user through the complete analytical decision cycle:
-
-**What changed → Why might it have changed → What evidence supports that explanation → Where is the impact concentrated → What should we do → How do we test it → What did we learn?**
-
-Narrate IQ is built around that complete loop.
-
----
-
-# 2. Solution
-
-Narrate IQ converts raw business data into an inspectable decision object through a sequence of deterministic and ML-assisted analytical stages, then exposes that decision object through an executive UI and conversational Copilot.
+Narrate IQ is designed around a complete business decision loop:
 
 ```text
-Raw Business Data
-        │
-        ▼
-Data Ingestion + Schema Validation
-        │
-        ▼
-Canonical Daily KPI Layer
-        │
-        ├── Temporal Movement Analysis
-        ├── Materiality Classification
-        └── Anomaly Detection
-        │
-        ▼
-Driver Evidence + Attribution
-        │
-        ├── Volume / Price decomposition
-        ├── Driver importance modeling
-        └── Dimension-level drill-down
-        │
-        ▼
-Confidence + Evidence Validation
-        │
-        ├── Statistical evidence
-        ├── Business event context
-        └── Segment evidence
-        │
-        ▼
-Learning-aware Hypothesis Ranking
-        │
-        ▼
-Recommendation Engine
-        │
-        ▼
-Experiment Engine
-        │
-        ▼
-Historical Learning
-        │
-        ▼
-Decision Object
-        │
-        ├───────────────┐
-        ▼               ▼
-Executive UI       Grounded AI Copilot
-                        │
-                        ▼
-                Natural-language answers
-                over verified decision context
+                 ┌──────────────────────┐
+                 │     BUSINESS DATA    │
+                 │ Sales / Marketing /  │
+                 │ Inventory / Events   │
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │ INGESTION & QUALITY  │
+                 │ Schema + date checks │
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │    KPI ENGINE        │
+                 │ Revenue / Units /    │
+                 │ ASP / Conversion /   │
+                 │ Marketing / Stockout │
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │ MOVEMENT & ANOMALY   │
+                 │ WoW / DoD / Rolling  │
+                 │ Baselines / Z-score  │
+                 │ Materiality          │
+                 └──────────┬───────────┘
+                            │
+                            ▼
+          ┌────────────────────────────────────┐
+          │       DRIVER / EVIDENCE LAYER      │
+          │ Volume + Price + ML attribution    │
+          │ Segment drill-down + Event context │
+          └──────────────────┬─────────────────┘
+                             │
+                             ▼
+                 ┌──────────────────────┐
+                 │ EVIDENCE VALIDATION  │
+                 │ Statistical + Event  │
+                 │ + Segment evidence   │
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │ HYPOTHESIS ENGINE    │
+                 │ Rank + Confidence    │
+                 │ + Historical signal  │
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │ RECOMMENDATION       │
+                 │ Structured actions   │
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │ EXPERIMENT            │
+                 │ Proposed → Running → │
+                 │ Completed             │
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │ HISTORICAL LEARNING  │
+                 │ Reliability by       │
+                 │ hypothesis            │
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │ DECISION OBJECT      │
+                 │ Canonical context    │
+                 └──────────┬───────────┘
+                            │
+                 ┌──────────┴──────────┐
+                 ▼                     ▼
+          Executive UI            AI Copilot
 ```
 
-The architecture deliberately separates measurement, analytical reasoning, decisioning, and language generation.
+The important architectural boundary is between the analytical system and the language system. Quantitative calculations, evidence scores, hypotheses and recommendations are generated upstream; the Copilot consumes the resulting decision context.
 
 ---
 
-# 3. Architecture
+## Why Narrate IQ
 
-| Layer | Responsibility | Implementation |
-|---|---|---|
-| Data | Load and validate source datasets | `src/ingestion/` |
-| KPI / Analytics | Compute KPIs, movement, materiality and anomalies | `src/kpi/`, `src/anomaly/` |
-| Evidence / Reasoning | Drivers, attribution, drill-down, context, validation and hypotheses | `src/drivers/`, `src/drilldown/`, `src/context/`, `src/evidence/`, `src/hypotheses/` |
-| Decision | Recommendations, experiments, historical learning and decision object | `src/recommendations/`, `src/experiments/`, `src/learning/`, `src/decision/` |
-| Language | Narrative generation and conversational Q&A | `src/llm/` |
-| Service / Presentation | FastAPI service + Streamlit interface | `api/`, `narrate_iq_frontend/` |
+A conventional BI dashboard answers **what changed**. Narrate IQ is designed to answer the broader sequence:
 
-The FastAPI application registers health, analysis, experiment, learning, drill-down, root-cause, decision and chat routers. fileciteturn5file0L2-L2
+1. **What changed?** — KPI movement and anomaly detection.
+2. **How material is it?** — KPI-specific materiality thresholds.
+3. **Why might it have changed?** — driver analysis and ranked hypotheses.
+4. **What evidence supports that explanation?** — statistical, segment and business-event evidence.
+5. **Where is the impact concentrated?** — region/product/channel drill-down.
+6. **What should we do?** — structured recommendation engine.
+7. **How can we test it?** — experiment lifecycle.
+8. **What did we learn?** — historical reliability by hypothesis.
+9. **How can a decision-maker ask questions?** — grounded AI Copilot.
+
+This turns BI from a reporting surface into an inspectable decision-support workflow.
 
 ---
 
-# 4. Intelligence Pipeline
+# End-to-End Architecture
 
-The frontend Data view exposes the ordered intelligence pipeline:
+Narrate IQ has four major execution boundaries:
+
+### 1. Data and deterministic analytics
+
+Raw source files are validated and transformed into canonical daily KPIs and analytical features.
+
+### 2. Evidence and reasoning
+
+Multiple signals are combined into driver evidence, segment evidence, business context, validation scores and hypotheses.
+
+### 3. Decision loop
+
+Hypotheses become recommendations and experiments. Experiment outcomes feed historical reliability.
+
+### 4. Human interface
+
+FastAPI exposes the analytical state and Streamlit presents it as an executive decision workflow. The AI Copilot uses the same structured decision object as its grounding context.
+
+---
+
+# Core Intelligence Pipeline
+
+The source tree separates the intelligence engine into focused modules:
 
 ```text
-1. src.kpi.engine
-2. src.anomaly.engine
-3. src.drivers.engine
-4. src.attribution.engine
-5. src.confidence.engine
-6. src.drilldown.sales
-7. src.context.events
-8. src.evidence.validator
-9. src.learning.history
-10. src.learning.engine
-11. src.hypotheses.engine
-12. src.recommendations.engine
-13. src.rootcause.engine
-14. src.experiments.engine
-15. src.decision.engine
-16. src.llm.narrative
+src/
+├── ingestion/       # Source contracts, loading and quality validation
+├── kpi/             # Daily KPI calculation and movement metrics
+├── anomaly/         # Material/anomaly detection
+├── drivers/         # Driver evidence, decomposition and ML attribution
+├── confidence/      # Evidence-based confidence scoring
+├── hypotheses/      # Hypothesis generation and ranking
+├── evidence/        # Evidence validation
+├── drilldown/       # Sales dimension analysis
+├── context/         # Business-event context
+├── rootcause/       # Root-cause graph construction
+├── recommendations/ # Structured recommendations
+├── experiments/     # Experiment lifecycle
+├── learning/        # Historical reliability
+├── decision/        # Canonical decision object
+└── llm/             # LLM client and business narrative
 ```
 
-The Data screen runs these modules sequentially, shows progress, captures module logs, and stops on the first failed process. `sales.csv` is the required dataset for the current frontend pipeline; inventory, marketing and business-event data are supported as additional sources. fileciteturn47file0L2-L2
+The frontend adds a presentation/API boundary:
 
-The processed-data reset logic maintains generated analytical artifacts separately from raw source files. fileciteturn45file0L2-L2
+```text
+narrate_iq_frontend/
+├── app.py
+├── api_client.py
+├── components.py
+├── data_quality.py
+├── theme.py
+└── views/
+    ├── executive.py
+    ├── root_cause.py
+    ├── experiments.py
+    ├── learning.py
+    ├── data.py
+    └── copilot.py
+```
 
 ---
 
-# 5. Analytics and Decisioning
+# Analytics
 
-## 5.1 Canonical KPI layer
+## KPI layer
 
-The KPI engine creates a daily canonical KPI table from sales, marketing and inventory data.
-
-Current core KPIs:
+The canonical daily KPI table currently includes:
 
 - Revenue
 - Units sold
@@ -161,15 +219,61 @@ Current core KPIs:
 - Conversion rate
 - Stockout rate
 
-The calculations are deterministic. Revenue is aggregated from sales transactions; ASP is total revenue divided by total units; conversion rate is total conversions divided by total clicks; and stockout rate is total stockout hours divided by theoretical available hours represented by inventory observations. fileciteturn10file0L2-L2
+The KPI implementation is deterministic and reproducible.
 
-## 5.2 Temporal movement analysis
+### Revenue
 
-For each KPI the movement layer calculates day-over-day percentage change, week-over-week percentage change, 7-day rolling mean, 28-day rolling mean, 28-day rolling standard deviation, and rolling-baseline z-score. fileciteturn11file0L2-L2
+```text
+Revenue = SUM(transaction revenue)
+```
 
-## 5.3 Materiality classification
+### Units sold
 
-| KPI | WoW threshold |
+```text
+Units Sold = SUM(transaction units)
+```
+
+### Average selling price
+
+```text
+ASP = Total Revenue / Total Units Sold
+```
+
+### Conversion rate
+
+```text
+Conversion Rate = Total Conversions / Total Clicks
+```
+
+### Stockout rate
+
+```text
+Stockout Rate = Total Stockout Hours
+                 / (Inventory Observations × 24)
+```
+
+---
+
+## Temporal movement
+
+For each KPI, Narrate IQ computes:
+
+- Day-over-day percentage change
+- Week-over-week percentage change
+- 7-day rolling mean
+- 28-day rolling mean
+- 28-day rolling standard deviation
+- Rolling-baseline z-score
+
+This provides both short-term movement and a longer historical baseline.
+
+---
+
+## Materiality
+
+KPI-specific thresholds prevent the system from treating every small fluctuation as a business incident.
+
+| KPI | Current WoW threshold |
 |---|---:|
 | Revenue | 5% |
 | Units sold | 8% |
@@ -178,92 +282,179 @@ For each KPI the movement layer calculates day-over-day percentage change, week-
 | Conversion rate | 5% |
 | Stockout rate | 3% |
 
-A movement at or above 2× the threshold is `high`; a movement at or above the threshold is `medium`; smaller movement is `low`; unavailable movement history is `insufficient_history`. fileciteturn12file0L2-L2
+Classification:
 
-## 5.4 Anomaly detection
+```text
+abs(movement) >= 2 × threshold  → high
+abs(movement) >= threshold      → medium
+otherwise                        → low
+missing history                  → insufficient_history
+```
 
-The anomaly detector consumes KPI-engine outputs and flags an observation when its absolute z-score is at least 2.0 or when the KPI has `high` materiality. Each anomaly contains the date, KPI, value, z-score, WoW movement, materiality and direction. fileciteturn24file0L2-L2
+---
 
-## 5.5 Revenue driver decomposition
+## Anomaly detection
 
-Narrate IQ explicitly models:
+The anomaly layer consumes KPI-engine output and flags a record when either:
+
+- absolute rolling z-score ≥ 2.0, or
+- materiality is `high`.
+
+An anomaly record contains the date, KPI, observed value, z-score, WoW change, materiality and direction.
+
+---
+
+## Revenue driver analysis
+
+Revenue is explicitly modeled as:
 
 ```text
 Revenue = Units Sold × Average Selling Price
 ```
 
-The driver analysis compares the current period with the prior comparable period and estimates volume and price effects, including relative contribution. fileciteturn26file0L2-L2
+The revenue driver layer estimates:
 
-## 5.6 Multi-factor driver evidence
+- Volume effect
+- Price effect
+- Volume contribution percentage
+- Price contribution percentage
 
-Daily sales, marketing and inventory signals are joined into a common driver-evidence table containing sales revenue and units, marketing spend/clicks/conversions, marketing conversion rate, stockout hours and closing stock. fileciteturn55file0L2-L2
+This provides an interpretable explanation before the LLM is involved.
 
-## 5.7 ML-based driver attribution
+> The current decomposition is a volume/price decomposition. It should not be described as a full price-volume-mix decomposition because product-mix is not separately calculated in the current implementation.
 
-The current attribution implementation uses a **Random Forest regression model with permutation importance** to estimate relative predictive importance of changes in candidate business drivers for revenue movement. It uses a time-ordered 80/20 train/test split and exports driver importance, direction and latest-period change. fileciteturn25file0L2-L2
+---
 
-A separate lagged-feature Random Forest model is also implemented for revenue prediction and reports MAE, R² and feature importance. fileciteturn27file0L2-L2
+## ML driver attribution
 
-> **Interpretation:** model importance is predictive evidence / association, not causal proof.
+Narrate IQ also builds a common daily evidence table from sales, marketing and inventory signals.
 
-## 5.8 Dimension-level drill-down
+Candidate driver features include:
 
-Sales-volume deterioration can be investigated across region, product and channel. The root-cause graph retains the most negative segments and estimates each segment's share of total negative unit movement. fileciteturn32file0L2-L2
+- Sales units
+- Marketing spend
+- Marketing clicks
+- Marketing conversions
+- Marketing conversion rate
+- Stockout hours
+- Closing stock
 
-## 5.9 Business-event context
+The attribution implementation uses a **Random Forest regressor** with **permutation importance** and a time-ordered 80/20 train/test split.
 
-Business events are aligned with KPI dates and categorized into analytical contexts such as marketing, inventory and competitive events. The context output also calculates revenue and unit movement against a preceding seven-day baseline. fileciteturn54file0L2-L2
+A separate lagged-feature Random Forest implementation adds previous-day values, previous-seven-day values and a rolling revenue feature and reports MAE, R² and feature importance.
 
-## 5.10 Evidence-backed hypothesis ranking
+### Important interpretation
 
-The current hypothesis engine evaluates:
+Random Forest feature importance indicates predictive association/usefulness. It is **not causal inference**. Narrate IQ therefore treats it as one evidence component rather than a causal proof.
+
+---
+
+# Evidence and Confidence
+
+Narrate IQ deliberately keeps evidence components visible.
+
+## Evidence validation
+
+Hypotheses can receive evidence from:
+
+### Statistical evidence
+
+Observed directional changes and ML importance.
+
+### Business-event evidence
+
+Relevant events aligned with the KPI movement, including inventory, marketing or competitive context.
+
+### Segment evidence
+
+Concentration of negative unit movement across region, product and channel.
+
+The validator records:
+
+- Validation score
+- Statistical score
+- Event-context score
+- Segment-evidence score
+- Supporting evidence
+- Contradicting evidence
+
+---
+
+## Confidence scoring
+
+Driver confidence is calculated from multiple signals:
+
+- ML importance
+- Anomaly evidence
+- KPI materiality
+- Magnitude of driver movement
+
+The result is bounded to 0–1 and labeled:
+
+```text
+>= 0.75  → high
+>= 0.50  → medium
+<  0.50  → low
+```
+
+This is a heuristic evidence score, not a calibrated probability.
+
+---
+
+# Hypothesis and Decision Layer
+
+The current hypothesis engine evaluates three primary business explanations:
 
 1. **Sales volume deterioration**
 2. **Inventory constraint**
 3. **Marketing efficiency deterioration**
 
-Hypotheses are combined using:
+Hypothesis ranking combines current evidence, validation and historical learning:
 
 ```text
-Combined score
-= 0.45 × current confidence
-+ 0.40 × evidence validation
-+ 0.15 × historical reliability
+Combined Score
+= 0.45 × Current Confidence
++ 0.40 × Validation Score
++ 0.15 × Historical Reliability
 ```
 
-The hypotheses are ranked by the resulting score and assigned confidence/status labels. fileciteturn34file0L2-L2
+Each hypothesis receives:
 
-## 5.11 Recommendation engine
-
-Recommendations are derived from structured hypotheses and their confidence, not invented by the LLM. Priority is `high` at ≥0.65, `medium` at ≥0.35, and `low` otherwise. fileciteturn53file0L2-L2
-
-## 5.12 Decision object
-
-The decision engine consolidates the latest state into `decision_object.json`, including current KPI state, leading hypothesis, confidence and validation, affected segments, business events, recommendation, experiment state/outcome and historical learning. fileciteturn30file0L2-L2
-
----
-
-# 6. Evidence and Uncertainty
-
-Narrate IQ avoids treating a single analytical signal as sufficient proof.
-
-The evidence-validation layer combines:
-
-- **Statistical evidence** — directional driver movement and model importance
-- **Business context** — relevant events around the KPI movement
-- **Segment evidence** — concentration of deterioration across dimensions
-
-The resulting validation record includes component scores, supporting evidence and contradicting evidence. fileciteturn35file0L2-L2
-
-The confidence layer separately scores driver evidence using model importance, anomaly evidence, materiality and magnitude of change, producing a bounded score and `high` / `medium` / `low` label. fileciteturn33file0L2-L2
-
-### Evidence ≠ causation
-
-Random Forest importance is not presented as proof that a driver caused a KPI movement. The Copilot is explicitly instructed to preserve the distinction between evidence and causation. fileciteturn25file0L2-L2 fileciteturn15file0L2-L2
+- Rank
+- Confidence score
+- Confidence label
+- Validation score
+- Historical reliability
+- Status
+- Supporting evidence
 
 ---
 
-# 7. Experiment and Learning Loop
+## Recommendations
+
+The recommendation engine maps structured hypotheses to operational actions.
+
+Current action families include:
+
+- Investigating sales-volume decline by region, product and channel
+- Investigating inventory availability and replenishment
+- Reviewing campaign/channel efficiency before increasing marketing spend
+
+Recommendation priority is derived from hypothesis confidence:
+
+```text
+>= 0.65 → high
+>= 0.35 → medium
+otherwise → low
+```
+
+Recommendations are therefore generated upstream of the LLM.
+
+---
+
+# Experiment and Learning Loop
+
+Narrate IQ is designed to close the loop between analysis and action.
 
 ```text
 Hypothesis
@@ -281,167 +472,225 @@ Future Hypothesis Ranking
 
 ## Experiment lifecycle
 
-Experiments support:
-
 ```text
 proposed → running → completed
 ```
 
-Each experiment records a hypothesis, target metric, expected direction, success threshold, baseline, observed value, measured change and outcome. Existing running/completed experiment state is preserved when the experiment layer is regenerated. fileciteturn37file0L2-L2
+An experiment records:
 
-The API exposes listing, start and outcome operations. fileciteturn57file0L2-L2
+- Experiment ID
+- Hypothesis
+- Target metric
+- Expected direction
+- Success threshold
+- Baseline value
+- Observed value
+- Measured change
+- Outcome
+
+The API supports listing experiments, starting an experiment with a baseline and recording an outcome.
 
 ## Historical learning
 
-Completed experiments are aggregated by hypothesis into attempts, successes, partials, failures, success rate, non-failure rate and historical reliability.
+Completed experiments are aggregated by hypothesis into:
+
+- Attempts
+- Successes
+- Partials
+- Failures
+- Success rate
+- Non-failure rate
+- Historical reliability
+
+Current reliability formula:
 
 ```text
-Historical reliability
-= 0.7 × success rate
-+ 0.3 × non-failure rate
+Historical Reliability
+= 0.7 × Success Rate
++ 0.3 × Non-failure Rate
 ```
 
-Historical reliability becomes a smaller component of future hypothesis ranking. fileciteturn42file0L2-L2
+Historical reliability contributes 15% of the combined hypothesis score.
 
 ---
 
-# 8. AI Copilot
+# AI Copilot
 
-The AI Copilot is deliberately **not a general-purpose chatbot**. It is a conversational interface over Narrate IQ's current structured decision context.
+The Copilot is intentionally a **business-analysis assistant**, not a general chatbot.
 
-Suggested questions include:
+Example questions:
 
-- `Why did revenue decline?`
-- `Why not marketing?`
-- `Did the experiment work?`
+```text
+Why did revenue decline?
+Why not marketing?
+Did the experiment work?
+```
 
-The frontend maintains conversation state and sends questions to `/chat`. fileciteturn39file0L2-L2
-
-## Grounding flow
+## Grounding architecture
 
 ```text
 User question
-     ↓
+      ↓
 POST /chat
-     ↓
+      ↓
 Load decision_object.json
-     ↓
+      ↓
 Build evidence-grounded prompt
-     ↓
+      ↓
 LLM
-     ↓
-Concise business answer
+      ↓
+Business answer
 ```
 
-The prompt instructs the model to use only supplied context, preserve exact numbers, never invent facts/metrics/events/causes/recommendations/outcomes, distinguish evidence from causation, acknowledge weak evidence, and state when information is unavailable. fileciteturn15file0L2-L2
+The prompt instructs the model to:
+
+- Use only the supplied Narrate IQ context
+- Preserve exact numbers
+- Never invent facts, metrics, events, causes, recommendations or experiment outcomes
+- Distinguish evidence from causation
+- Explicitly acknowledge weak evidence
+- Compare hypotheses using their confidence/validation evidence
+- Reuse generated recommendations where appropriate
+- Use experiment baseline, observed value, measured change and outcome when answering experiment questions
+- State when information is unavailable
 
 ## LLM provider
 
-The canonical provider implementation in `src/llm/client.py` uses the **Groq** Python client and `GROQ_API_KEY`; the default model is `llama-3.3-70b-versatile`, configurable through `LLM_MODEL`. fileciteturn28file0L2-L2
+The canonical implementation in `src/llm/client.py` uses the **Groq** client.
 
-The repository also contains an alternate API-side implementation under `api/src/llm/chat.py` using the OpenAI client. The root `.env.example` and canonical `src/llm/client.py` configure the primary project path around Groq. fileciteturn31file0L2-L2
+Configuration:
 
----
-
-# 9. Frontend
-
-The prototype frontend is built with **Streamlit** and lives in `narrate_iq_frontend/`.
-
-Navigation:
-
-```text
-Executive | Root Cause | Experiments | Learning | Data | AI Copilot
+```env
+LLM_PROVIDER=groq
+LLM_MODEL=llama-3.3-70b-versatile
+GROQ_API_KEY=your_key
 ```
 
-The entry point handles page configuration, session state, sidebar navigation and view dispatch. fileciteturn13file0L2-L2
-
-### Executive
-
-Presents the decision loop as **WHAT → WHY → WHERE → DECISION → EXPERIMENT → LEARNING**, including revenue movement, units, confidence, evidence strength, hypothesis, supporting evidence, affected segments, recommendation, experiment state/outcome and historical reliability. fileciteturn38file0L2-L2
-
-### Root Cause
-
-Shows ranked hypotheses and a contribution explorer across dimensions such as region, product and channel. fileciteturn56file0L2-L2
-
-### Experiments
-
-Exposes experiment lifecycle and outcome tracking.
-
-### Learning
-
-Surfaces historical hypothesis reliability and experiment history.
-
-### Data
-
-Provides dataset status, CSV upload/replacement, preview quality scoring, column/data preview, pipeline execution, module progress and failure logs. fileciteturn47file0L2-L2
-
-### AI Copilot
-
-Provides suggested questions, free-form business questions, conversation history and the grounded `/chat` integration. fileciteturn39file0L2-L2
+The repository also contains an alternate API-side chat implementation under `api/src/llm/chat.py` using the OpenAI client. The primary configuration and canonical client use Groq.
 
 ---
 
-# 10. Backend API
+# Frontend
 
-The backend is implemented with **FastAPI**. It registers health, analysis, experiments, learning, drill-down, root-cause, decision and chat routers. fileciteturn5file0L2-L2
+The frontend is a Streamlit application with a custom enterprise-style navigation shell.
 
-The API reads processed artifacts through a CSV repository abstraction and returns explicit errors when required processed outputs are missing. fileciteturn8file0L2-L2
+## Executive
+
+The main decision screen is organized as:
+
+```text
+WHAT → WHY → WHERE → DECISION → EXPERIMENT → LEARNING
+```
+
+It displays:
+
+- Revenue movement
+- Units sold
+- Confidence
+- Evidence strength
+- Leading hypothesis
+- Supporting evidence
+- Top affected segments
+- Recommendation
+- Experiment state/outcome
+- Historical reliability
+
+## Root Cause
+
+Provides ranked hypotheses and an interactive contribution explorer across available dimensions such as region, product and channel.
+
+## Experiments
+
+Provides the experiment lifecycle and outcome workflow.
+
+## Learning
+
+Displays historical hypothesis reliability and experiment history.
+
+## Data
+
+Provides:
+
+- Dataset status
+- CSV upload/replacement
+- Quick local quality preview
+- Column/data preview
+- Pipeline execution UI
+- Progress and failure logs
+
+The local quality preview reports row count, missing percentage and duplicate percentage. It is explicitly a pre-validation convenience layer; backend ingestion still performs source validation.
+
+## AI Copilot
+
+Provides suggested questions, free-form chat and conversation state through the `/chat` API.
 
 ---
 
-# 11. Data Model and Outputs
+# Backend
 
-## Raw source contracts
+The service layer is implemented with FastAPI.
 
-The ingestion schema defines contracts for:
+The application registers routes for:
 
-- `sales.csv`
-- `marketing.csv`
-- `inventory.csv`
-- `business_events.csv`
-- `kpi_dictionary.csv`
-- `source_metadata.csv`
+- Health
+- KPI/analysis
+- Experiments
+- Learning
+- Drill-down
+- Root cause
+- Decision
+- Chat
 
-Each source specifies required columns and, for time-aware sources, date parsing requirements. fileciteturn23file0L2-L2
+The API reads generated analytical artifacts from `data/processed/` through a CSV repository abstraction.
+
+---
+
+# Data
+
+Narrate IQ expects the following source contracts under `data/raw/`:
 
 | Source | Purpose |
 |---|---|
 | `sales.csv` | Transaction-level commercial performance |
-| `marketing.csv` | Campaign/channel efficiency |
-| `inventory.csv` | Availability and stockout evidence |
+| `marketing.csv` | Campaign/channel performance |
+| `inventory.csv` | Stock and availability evidence |
 | `business_events.csv` | Business context and external events |
-| `kpi_dictionary.csv` | KPI definitions, formulas, drivers, thresholds, source and owner |
+| `kpi_dictionary.csv` | KPI definitions, formulas, drivers, thresholds and owners |
 | `source_metadata.csv` | Source grain, refresh, ownership, quality and security metadata |
 
-## Processed artifacts
+The ingestion schemas define required columns and date parsing requirements for the time-aware sources.
 
-| Artifact | Purpose |
-|---|---|
-| `daily_kpis.csv` | Canonical daily KPI layer |
-| `anomalies.csv` | Material/anomalous KPI movements |
-| `revenue_drivers.csv` | Volume/price decomposition |
-| `revenue_driver_ranking.csv` | Ranked revenue-driver view |
-| `driver_evidence.csv` | Joined sales/marketing/inventory evidence |
-| `driver_attribution.csv` | Driver importance and latest changes |
-| `ml_driver_importance.csv` | Lagged-feature ML importance |
-| `confidence_scores.csv` | Driver confidence scores |
-| `sales_dimension_drilldown.csv` | Region/product/channel evidence |
-| `event_context.csv` | Business-event alignment |
-| `evidence_validation.csv` | Hypothesis evidence validation |
-| `hypotheses.csv` | Ranked explanations |
-| `recommendations.csv` | Structured actions |
-| `root_cause_graph.csv` | Hypothesis and segment graph |
-| `experiments.csv` | Experiment state |
-| `experiment_history.csv` | Experiment history |
-| `hypothesis_history.csv` | Historical reliability |
-| `decision_object.json` | Canonical decision context |
-| `business_narrative.txt` | Business narrative |
+## Raw vs processed data
 
-The pipeline reset logic explicitly maintains these generated outputs in `data/processed/`. fileciteturn45file0L2-L2
+```text
+data/raw/
+    ↓
+validated source tables
+    ↓
+data/processed/
+    ├── daily_kpis.csv
+    ├── anomalies.csv
+    ├── driver_evidence.csv
+    ├── revenue_drivers.csv
+    ├── revenue_driver_ranking.csv
+    ├── driver_attribution.csv
+    ├── ml_driver_importance.csv
+    ├── confidence_scores.csv
+    ├── sales_dimension_drilldown.csv
+    ├── event_context.csv
+    ├── evidence_validation.csv
+    ├── hypotheses.csv
+    ├── recommendations.csv
+    ├── root_cause_graph.csv
+    ├── experiments.csv
+    ├── hypothesis_history.csv
+    ├── decision_object.json
+    └── business_narrative.txt
+```
 
 ---
 
-# 12. Repository Structure
+# Repository Structure
 
 ```text
 Narrate_IQ/
@@ -513,32 +762,14 @@ Narrate_IQ/
 
 ---
 
-# 13. Data Ingestion and Validation
-
-For each declared source, the ingestion layer checks:
-
-1. File existence
-2. Required columns
-3. Date parsing
-4. Invalid dates
-5. Basic quality statistics
-
-The ingestion pipeline produces a quality report containing row count, column count, duplicate rows, missing values and date range. fileciteturn36file0L2-L2
-
-The frontend's local quality score is intentionally only a preview and does not replace backend ingestion validation. fileciteturn47file0L2-L2
-
----
-
-# 14. Setup
+# Installation
 
 ## Prerequisites
-
-Recommended:
 
 - Python 3.11+
 - Git
 - pip
-- Groq API key for the LLM layer
+- Groq API key for the LLM features
 
 ## Clone
 
@@ -563,99 +794,121 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-## Install
+## Install dependencies
 
 ```bash
 pip install -r requirements.txt
 pip install -r narrate_iq_frontend/requirements.txt
 ```
 
-## Environment
+The root requirements cover analytics/ML, FastAPI, testing, plotting, Groq, Streamlit and HTTP clients. The frontend requirements add `streamlit-option-menu`.
 
-Copy `.env.example` to `.env` and configure:
+---
+
+# Configuration
+
+Copy the example environment file:
+
+```bash
+cp .env.example .env
+```
+
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Configure:
 
 ```env
 APP_ENV=development
 DEBUG=true
+
 LLM_PROVIDER=groq
 LLM_MODEL=llama-3.3-70b-versatile
 GROQ_API_KEY=your_groq_api_key
+
 DATABASE_URL=
 LOG_LEVEL=INFO
 ```
 
-The configuration shape reflects the current repository example. fileciteturn31file0L2-L2
-
-**Never commit a real API key.**
+Never commit a real API key.
 
 ---
 
-# 15. Running the System
+# Running Locally
 
-Narrate IQ runs as two cooperating processes:
+Narrate IQ has two local processes:
 
 ```text
-FastAPI backend  ←→  Streamlit frontend
+FastAPI :8000
+     ↕
+Streamlit :8501
 ```
 
-The frontend currently targets `http://127.0.0.1:8000`. fileciteturn14file0L2-L2
+## 1. Prepare data
 
-## A. Prepare raw data
-
-Place source files under:
+Place the source files under:
 
 ```text
 data/raw/
 ```
 
-At minimum, the current frontend workflow requires:
+At minimum, the current Data workflow requires:
 
 ```text
 data/raw/sales.csv
 ```
 
-The richer pipeline uses marketing, inventory and business-event sources as well. fileciteturn47file0L2-L2
+For the complete evidence workflow, provide marketing, inventory and business-event sources as well.
 
-## B. Validate / ingest
+## 2. Validate ingestion
 
 ```bash
 python -m src.ingestion.pipeline
 ```
 
-## C. Build the KPI layer
+This reports source row counts, column counts, duplicate rows, missing values and date ranges.
+
+## 3. Build the KPI layer
 
 ```bash
 python -m src.kpi.pipeline
 ```
 
-This loads sources, calculates daily KPIs, adds movement metrics and materiality flags, and writes `data/processed/daily_kpis.csv`. fileciteturn9file0L2-L2
+This loads the sources, computes daily KPIs, adds movement metrics and materiality flags, and writes `data/processed/daily_kpis.csv`.
 
-## D. Run the complete intelligence pipeline
+## 4. Run the remaining analytical modules
 
-The recommended prototype workflow is the **Data → Run Narrate IQ Analysis** action because it executes the ordered modules with visible progress and failure logs. fileciteturn47file0L2-L2
+The source tree contains dedicated executable modules for anomaly detection, driver evidence/analysis, attribution, confidence, drill-down, event context, evidence validation, learning, hypotheses, recommendations, root cause, experiments, decision construction and narrative generation.
 
-## E. Start the API
+When reproducing the full pipeline from a clean checkout, execute the modules in dependency order, beginning with ingestion and KPI generation and ending with decision/narrative generation. The Streamlit Data screen provides the intended interactive pipeline workflow for the prototype.
+
+## 5. Start FastAPI
 
 ```bash
 uvicorn api.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-## F. Start the frontend
+## 6. Start Streamlit
 
-In another terminal:
+In a second terminal:
 
 ```bash
 cd narrate_iq_frontend
 streamlit run app.py
 ```
 
-The frontend entry point is designed for `streamlit run app.py`. fileciteturn13file0L2-L2
+Open the URL printed by Streamlit, normally:
 
-Open the Streamlit URL printed by the terminal, normally `http://localhost:8501`.
+```text
+http://localhost:8501
+```
 
 ---
 
-# 16. API Reference
+# API
 
 ## Health
 
@@ -676,7 +929,7 @@ GET /narrative
 GET /analysis
 ```
 
-The combined `/analysis` endpoint returns the latest KPI, anomalies, drivers, attribution, confidence, hypotheses, evidence validation, drill-down, recommendations and narrative. fileciteturn6file0L2-L2
+`/analysis` combines the latest KPI, anomalies, driver information, attribution, confidence, hypotheses, evidence validation, drill-down, recommendations and narrative.
 
 ## Decision
 
@@ -684,7 +937,7 @@ The combined `/analysis` endpoint returns the latest KPI, anomalies, drivers, at
 GET /decision
 ```
 
-Returns the canonical decision object consumed by the executive experience and Copilot. fileciteturn41file0L2-L2
+Returns the consolidated decision object used by the executive interface and Copilot.
 
 ## Root cause
 
@@ -692,7 +945,7 @@ Returns the canonical decision object consumed by the executive experience and C
 GET /root-cause
 ```
 
-Returns the hypothesis and segment graph. fileciteturn56file0L2-L2
+Returns the hypothesis/segment root-cause graph.
 
 ## Sales drill-down
 
@@ -708,7 +961,21 @@ POST /experiments/{experiment_id}/start
 POST /experiments/{experiment_id}/outcome
 ```
 
-The start operation records a baseline; the outcome operation records an observed value and advances experiment state. fileciteturn57file0L2-L2
+Example start payload:
+
+```json
+{
+  "baseline_value": 1000
+}
+```
+
+Example outcome payload:
+
+```json
+{
+  "observed_value": 1080
+}
+```
 
 ## Learning
 
@@ -722,7 +989,7 @@ GET /learning
 POST /chat
 ```
 
-Example:
+Example request:
 
 ```json
 {
@@ -731,13 +998,13 @@ Example:
 }
 ```
 
-The chat layer loads `decision_object.json`, constructs a grounded prompt, and returns the LLM answer. fileciteturn15file0L2-L2
-
 ---
 
-# 17. Testing
+# Testing
 
-The repository contains API tests in `tests/test_api.py` covering health and major analysis, decision, experiment, learning, root-cause and drill-down routes. The tests assert successful HTTP responses and key response structures. fileciteturn43file0L2-L2
+The repository includes API-level tests under `tests/test_api.py`.
+
+The suite covers the health endpoint and major analysis, decision, experiment, learning, root-cause and sales-drilldown routes.
 
 Run:
 
@@ -745,124 +1012,191 @@ Run:
 pytest -q
 ```
 
-Use this as the minimum smoke-test gate before submission.
-
----
-
-# 18. Design Decisions
-
-### Deterministic analytics before LLM
-
-The system computes and validates quantitative outputs before language generation. fileciteturn10file0L2-L2
-
-### Evidence composition
-
-Statistical movement, model evidence, business context and segment evidence remain separately visible before hypotheses are ranked. fileciteturn35file0L2-L2
-
-### Association is not causation
-
-Random Forest importance is predictive evidence, not a causal estimate. The Copilot is explicitly instructed to preserve this distinction. fileciteturn25file0L2-L2 fileciteturn15file0L2-L2
-
-### Recommendations are structured upstream
-
-Operational recommendations are generated from structured hypotheses and confidence before the LLM is invoked. fileciteturn53file0L2-L2
-
-### Decision object as the interface contract
-
-`decision_object.json` is the structured hand-off between the analytical stack and conversational interface. fileciteturn30file0L2-L2
-
-### Frontend / backend separation
-
-Streamlit handles presentation, FastAPI exposes service endpoints, and intelligence logic remains in reusable Python modules. fileciteturn13file0L2-L2
-
----
-
-# 19. Scope and Limitations
-
-Narrate IQ is a **functional decision-intelligence prototype**, not a production enterprise deployment.
-
-### Current capabilities
-
-- Multi-source CSV ingestion
-- Schema/date validation
-- Deterministic KPI computation
-- Temporal movement analysis
-- Materiality classification
-- Z-score anomaly detection
-- Revenue volume/price decomposition
-- Random Forest driver attribution
-- Dimension-level drill-down
-- Business-event context
-- Evidence validation
-- Confidence scoring
-- Hypothesis ranking
-- Structured recommendations
-- Experiment lifecycle
-- Historical learning
-- Canonical decision object
-- Executive Streamlit interface
-- Grounded LLM Copilot
-
-### Current limitations
-
-- Persistence is CSV-based rather than a production database.
-- Enterprise identity/authentication is not implemented in the current prototype.
-- Confidence is a heuristic evidence score rather than a calibrated probability.
-- Driver importance establishes predictive association, not causal identification.
-- The frontend defaults to the local backend URL `127.0.0.1:8000`. fileciteturn14file0L2-L2
-- The hypothesis library is bounded to the explanations implemented in the current engine.
-- Copilot responses depend on the completeness and freshness of generated `decision_object.json`.
-
-These boundaries are intentionally disclosed.
-
----
-
-# 20. Submission / Evaluation Guide
-
-## Recommended evaluation flow
+Recommended submission gate:
 
 ```text
-1. Inspect data contracts
-2. Run ingestion validation
-3. Build daily KPIs
-4. Detect material movement / anomalies
-5. Inspect driver evidence and attribution
-6. Inspect evidence validation
-7. Review ranked hypotheses
-8. Inspect root-cause segments
-9. Review the recommendation
-10. Start / complete an experiment
-11. Observe historical learning
-12. Open the Executive view
-13. Ask the Copilot: “Why did revenue decline?”
-14. Verify that the answer stays within the structured decision context
+1. Fresh virtual environment
+2. Install dependencies
+3. Configure environment
+4. Validate data
+5. Run analytical pipeline
+6. Start API
+7. Start frontend
+8. Run pytest
+9. Manually verify Executive + Root Cause + Experiments + Learning + Copilot
 ```
 
-## What makes the architecture defensible
+---
 
-- **Quantitative truth is not delegated to the LLM.** KPI and analytical layers produce the numbers first. fileciteturn10file0L2-L2
-- **The system reasons from multiple evidence sources.** Statistical, event-context and segment evidence are retained separately. fileciteturn35file0L2-L2
-- **Recommendations connect analysis to action.** Hypotheses become structured next actions and experiments. fileciteturn53file0L2-L2 fileciteturn37file0L2-L2
-- **Experiments create a learning loop.** Outcomes feed historical reliability, which becomes a component of future hypothesis ranking. fileciteturn42file0L2-L2
-- **The UI reflects the analytical model.** The Executive screen is organized around WHAT → WHY → WHERE → DECISION → EXPERIMENT → LEARNING. fileciteturn38file0L2-L2
+# Technical Design Rationale
 
-## Security
+## 1. Why deterministic KPI computation?
 
-Do not commit API keys, `.env` files containing secrets, or other credentials. Use `.env.example` as the configuration template. fileciteturn31file0L2-L2
+Business metrics must be reproducible. Revenue, units, ASP, conversion and stockout metrics are computed directly from structured data rather than asking an LLM to calculate them.
+
+## 2. Why separate materiality from anomaly detection?
+
+A statistical deviation and a business-significant movement are related but not identical. The system keeps KPI-specific materiality thresholds separate from the z-score anomaly signal.
+
+## 3. Why multiple evidence sources?
+
+A single model feature should not automatically become a business explanation. Narrate IQ combines statistical movement, predictive driver evidence, segment concentration and business events before ranking hypotheses.
+
+## 4. Why a decision object?
+
+`decision_object.json` provides a stable structured contract between the intelligence engine and user-facing language interface. It prevents the Copilot from needing to independently rediscover the business state.
+
+## 5. Why experiments?
+
+A recommendation without outcome measurement is incomplete. Experiments turn hypotheses into testable actions and create historical evidence for future ranking.
+
+## 6. Why historical learning?
+
+Different organizations and situations may repeatedly exhibit different patterns. Recording experiment outcomes allows the system to incorporate empirical reliability into future hypothesis ranking.
+
+## 7. Why not call the ML attribution causal inference?
+
+Random Forest feature importance measures predictive usefulness. Without a causal identification strategy or controlled experiment, it cannot establish that a variable caused the KPI movement. Narrate IQ therefore uses experiments as the mechanism for validating actions rather than overstating model importance as causality.
 
 ---
 
-## Technology Stack
+# Limitations
 
-**Backend:** Python, FastAPI, Uvicorn, Pydantic, python-dotenv  
-**Analytics / ML:** Pandas, NumPy, SciPy, Statsmodels, scikit-learn  
-**Frontend:** Streamlit, Plotly, Requests, Streamlit Option Menu  
-**LLM:** Groq API, `llama-3.3-70b-versatile` by default
+Narrate IQ is a **functional decision-intelligence prototype** rather than a production enterprise platform.
 
-The dependency and provider configuration reflect the repository's current implementation. fileciteturn7file0L2-L2 fileciteturn28file0L2-L2
+Current boundaries include:
+
+- CSV-based persistence rather than a production database
+- Prototype-level local deployment
+- No enterprise identity provider / SSO implementation
+- Heuristic confidence scoring rather than calibrated probabilities
+- Predictive attribution rather than causal inference
+- Bounded hypothesis library
+- Localhost-oriented frontend/API configuration
+- Copilot quality depends on the completeness of the generated decision context
+
+These limitations are explicit design boundaries for the prototype and should be considered when evaluating production readiness.
 
 ---
 
-## Final Principle
+# Evaluation / Demo Flow
+
+The strongest way to evaluate Narrate IQ is to follow one business situation through the complete loop.
+
+```text
+                 BUSINESS QUESTION
+                        │
+                        ▼
+                KPI movement detected
+                        │
+                        ▼
+                  Anomaly flagged
+                        │
+                        ▼
+                 Drivers identified
+                        │
+                        ▼
+                Evidence validated
+                        │
+                        ▼
+                Hypotheses ranked
+                        │
+                        ▼
+                  Root cause view
+                        │
+                        ▼
+                  Recommendation
+                        │
+                        ▼
+                    Experiment
+                        │
+                        ▼
+                     Outcome
+                        │
+                        ▼
+               Historical learning
+                        │
+                        ▼
+                Decision object
+                        │
+                        ▼
+                    AI Copilot
+```
+
+### Suggested demo questions
+
+**Executive:**
+
+> What is happening to revenue?
+
+**Root Cause:**
+
+> Which hypothesis has the strongest evidence, and where is the impact concentrated?
+
+**Decision:**
+
+> What action should the business take?
+
+**Experiment:**
+
+> How would we test that action?
+
+**Learning:**
+
+> Has this type of hypothesis worked before?
+
+**Copilot:**
+
+> Why did revenue decline?
+
+Then verify that the Copilot answer uses the same numbers and evidence already visible in the decision context.
+
+---
+
+# Security
+
+- Keep secrets in `.env` or the deployment secret manager.
+- Never commit API keys.
+- Do not place production credentials in example files.
+- Treat uploaded business data as potentially sensitive in a real deployment.
+- The current prototype's `security_scope` metadata is descriptive; it is not a substitute for production authorization controls.
+
+---
+
+# Technology Stack
+
+### Backend
+
+- Python
+- FastAPI
+- Uvicorn
+- Pydantic
+- python-dotenv
+
+### Analytics / ML
+
+- Pandas
+- NumPy
+- SciPy
+- Statsmodels
+- scikit-learn
+
+### Frontend
+
+- Streamlit
+- Plotly
+- Requests
+- Streamlit Option Menu
+
+### LLM
+
+- Groq API
+- `llama-3.3-70b-versatile` by default
+
+---
+
+# Final Principle
 
 > **Compute and validate business truth first. Package it into an inspectable decision context. Then use AI to make that verified context easier for people to understand and act on.**
+
+That separation is the foundation of Narrate IQ's reliability, traceability and extensibility.
