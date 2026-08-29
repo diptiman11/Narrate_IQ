@@ -20,9 +20,20 @@ router = APIRouter(
 def chat(
     request: ChatRequest,
 ):
+
     try:
+
+        conversation = [
+            {
+                "role": message.role,
+                "content": message.content,
+            }
+            for message in request.conversation
+        ]
+
         answer = ask_narrate_iq(
-            request.question
+            question=request.question,
+            conversation=conversation,
         )
 
         return ChatResponse(
@@ -30,19 +41,24 @@ def chat(
         )
 
     except FileNotFoundError as exc:
+
         raise HTTPException(
             status_code=404,
             detail=str(exc),
         ) from exc
 
     except RuntimeError as exc:
+
         raise HTTPException(
             status_code=500,
             detail=str(exc),
         ) from exc
 
     except Exception as exc:
+
         raise HTTPException(
             status_code=500,
-            detail=f"LLM request failed: {exc}",
+            detail=(
+                f"LLM request failed: {exc}"
+            ),
         ) from exc
