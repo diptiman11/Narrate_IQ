@@ -16,3 +16,7 @@ httpx
 jupyter
 matplotlib
 plotly
+
+groq
+streamlit
+requests
